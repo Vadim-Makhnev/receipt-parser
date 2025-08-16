@@ -28,7 +28,7 @@ func Run(imapconfig *config.IMAPConfig) error {
 
 	log.Println("Connecting to server...")
 
-	c, err := client.DialTLS("imap.yandex.ru:993", nil)
+	c, err := client.DialTLS(imapconfig.Server, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
