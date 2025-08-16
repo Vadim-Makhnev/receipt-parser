@@ -16,6 +16,16 @@ import (
 	"golang.org/x/net/html"
 )
 
+type ReceiptParseService struct {
+	config *config.IMAPConfig
+}
+
+func NewReceiptParseService(cfg *config.IMAPConfig) *ReceiptParseService {
+	return &ReceiptParseService{
+		config: cfg,
+	}
+}
+
 // Loading environment
 func LoadEnv() error {
 	if err := godotenv.Load("local.env"); err != nil {
@@ -24,20 +34,20 @@ func LoadEnv() error {
 	return nil
 }
 
-func Run(imapconfig *config.IMAPConfig) error {
+func (s *ReceiptParseService) Run() error {
 
 	log.Println("Connecting to server...")
 
-	c, err := client.DialTLS(imapconfig.Server, nil)
+	c, err := client.DialTLS(s.config.Server, nil)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	log.Println("Connected")
 
 	defer c.Logout()
 
-	if err := c.Login(imapconfig.Username, imapconfig.Password); err != nil {
-		log.Fatal(err)
+	if err := c.Login(s.config.Username, s.config.Password); err != nil {
+		return err
 	}
 
 	log.Println("Logged in")
@@ -49,12 +59,12 @@ func Run(imapconfig *config.IMAPConfig) error {
 	}()
 
 	if err := <-done; err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	mbox, err := c.Select("INBOX", false)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	seqset := new(imap.SeqSet)
@@ -67,7 +77,7 @@ func Run(imapconfig *config.IMAPConfig) error {
 	}()
 
 	if err := <-done; err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	for msg := range messages {
@@ -103,7 +113,7 @@ func Run(imapconfig *config.IMAPConfig) error {
 
 // Parsing text/html parts into string
 // Recursively going through the DOM tree
-// Writing text nodes into strings.Builder
+// Writing DOM text nodes into strings.Builder
 func HTMLToText(htmlStr string) string {
 	doc, err := html.Parse(strings.NewReader(htmlStr))
 	if err != nil {
@@ -197,7 +207,9 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := Run(imapconfig); err != nil {
+	service := NewReceiptParseService(imapconfig)
+
+	if err := service.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
